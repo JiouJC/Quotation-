@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日系設計師報價系統 (備註回歸版)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --sidebar-width: 360px;
+            --bg-color: #E5E5E5;
+            --paper-width: 210mm;
+            --paper-height: 297mm;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- 左側編輯區 --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: #fff;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+            border-right: 1px solid #ddd;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 25px; }
+        .sidebar h2 { font-size: 18px; color: #333; margin: 0 0 20px 0; font-weight: 700; letter-spacing: 1px; }
+        
+        .form-section { margin-bottom: 25px; }
+        .label { font-size: 13px; font-weight: 700; color: #555; margin-bottom: 8px; display: block; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 6px; font-size: 14px; margin-bottom: 10px; background: #fafafa; transition: 0.2s; }
+        .form-control:focus { border-color: #333; background: #fff; outline: none; }
+        
+        /* 風格選擇 */
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .style-card { border: 2px solid transparent; background: #f4f4f4; padding: 15px 5px; text-align: center; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .style-card span { display: block; font-size: 13px; font-weight: 700; color: #555; }
+        .style-card small { display: block; font-size: 10px; color: #999; margin-top: 2px; }
+        
+        .style-card.btn-intellect.active { background: #2C3E50; border-color: #2C3E50; }
+        .style-card.btn-intellect.active span, .style-card.btn-intellect.active small { color: #fff; }
+        .style-card.btn-nature.active { background: #5D6D56; border-color: #5D6D56; }
+        .style-card.btn-nature.active span, .style-card.btn-nature.active small { color: #fff; }
+        .style-card.btn-minimal.active { background: #000; border-color: #000; }
+        .style-card.btn-minimal.active span, .style-card.btn-minimal.active small { color: #fff; }
+
+        .item-row { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 10px; position: relative; }
+        .btn-del { position: absolute; top: 10px; right: 10px; color: #e74c3c; border: none; background: none; cursor: pointer; font-size: 12px; }
+        .btn-add { width: 100%; padding: 12px; border: 1px dashed #bbb; color: #666; background: none; border-radius: 6px; cursor: pointer; font-weight: 700; }
+        .btn-add:hover { border-color: #333; color: #333; background: #fff; }
+
+        .desktop-download { padding: 20px; border-top: 1px solid #eee; }
+        .btn-main { width: 100%; padding: 15px; background: #2D3436; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-main:hover { background: #000; }
+
+        /* --- 右側預覽區 --- */
+        .preview-area { 
+            flex: 1; height: 100%; overflow: hidden; background-color: #525659;
+            position: relative; display: flex; align-items: flex-start; justify-content: center;
+        }
+        
+        .zoom-container { padding: 20px; transform-origin: top center; transition: transform 0.2s ease; margin-bottom: 50px; }
+
+        /* --- A4 紙張 --- */
+        #invoice-paper { width: var(--paper-width); min-height: var(--paper-height); background: #fff; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,0.4); position: relative; }
+
+        /* --- 手機導航 --- */
+        .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; border-top: 1px solid #ddd; z-index: 100; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .nav-grid { display: flex; height: 60px; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #999; cursor: pointer; border: none; background: none; }
+        .nav-item.active { color: #2D3436; font-weight: 700; }
+        
+        @media (max-width: 900px) {
+            .mobile-nav { display: block; }
+            .desktop-download { display: none; }
+            .sidebar { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 60px); transform: translateX(0); }
+            .preview-area { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 60px); transform: translateX(100%); background: #333; }
+            body[data-view="preview"] .sidebar { transform: translateX(-100%); }
+            body[data-view="preview"] .preview-area { transform: translateX(0); }
+        }
+
+        /* =========================================
+           表格與排版
+           ========================================= */
+
+        .page-content { padding: 12mm; height: 100%; position: relative; }
+        
+        .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
+        .inv-table td { vertical-align: top; line-height: 1.6; padding: 12px 5px; word-wrap: break-word; overflow-wrap: break-word; }
+
+        .col-item { width: 20%; font-weight: 700; color: #333; }
+        .col-desc { width: 45%; color: #555; white-space: pre-wrap; }
+        .col-qty  { width: 8%; text-align: center; white-space: nowrap; }
+        .col-price{ width: 13%; text-align: right; white-space: nowrap; }
+        .col-amt  { width: 14%; text-align: right; font-weight: 700; white-space: nowrap; }
+
+        /* 備註區樣式 (New) */
+        .notes-section { 
+            margin-top: 40px; margin-bottom: 30px; 
+            font-size: 12px; color: #666; line-height: 1.8; 
+            padding: 15px; border-radius: 4px; 
+            white-space: pre-wrap; /* 保留換行 */
+        }
+
+        /* --- 風格 1: 知性 (Intellect) --- */
+        .style-intellect { font-family: 'Noto Sans TC', sans-serif; color: #2C3E50; }
+        .style-intellect .page-content { padding: 15mm; background-color: #fdfdfd; }
+        .style-intellect .header { border-bottom: 4px solid #2C3E50; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .style-intellect .title { font-size: 32px; font-weight: 700; letter-spacing: 2px; color: #2C3E50; }
+        .style-intellect .meta { text-align: right; font-size: 13px; color: #555; }
+        .style-intellect .info-box { background: #ECF0F1; padding: 20px; border-radius: 4px; margin-bottom: 30px; display: flex; gap: 30px; }
+        .style-intellect .info-col { flex: 1; }
+        .style-intellect .info-label { font-size: 12px; font-weight: 700; color: #7F8C8D; margin-bottom: 5px; }
+        .style-intellect .info-val { font-size: 15px; font-weight: 500; color: #2C3E50; }
+        .style-intellect th { background: #2C3E50; color: #fff; padding: 10px 8px; font-size: 13px; font-weight: 500; text-align: left; }
+        .style-intellect td { border-bottom: 1px solid #BDC3C7; }
+        .style-intellect .total-area { display: flex; justify-content: flex-end; margin-top: 20px; }
+        .style-intellect .total-row { width: 250px; display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+        .style-intellect .grand { width: 250px; display: flex; justify-content: space-between; border-top: 2px solid #2C3E50; padding-top: 10px; margin-top: 10px; font-size: 18px; font-weight: 700; color: #2C3E50; }
+        .style-intellect .notes-section { background-color: #F8F9FA; border-left: 4px solid #2C3E50; }
+
+        /* --- 風格 2: 自然 (Nature) --- */
+        .style-nature { font-family: 'Noto Serif TC', serif; color: #3E4A3D; background-color: #F8F9F5; }
+        .style-nature .page-content { padding: 12mm; }
+        .style-nature .header { text-align: center; margin-bottom: 40px; }
+        .style-nature .title { font-size: 28px; font-weight: 700; letter-spacing: 5px; color: #5D6D56; border-bottom: 1px solid #A3B19C; display: inline-block; padding-bottom: 10px; margin-bottom: 10px; }
+        .style-nature .meta { font-size: 12px; color: #7A8576; font-family: 'Noto Sans TC'; }
+        .style-nature .info-wrapper { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .style-nature .info-block { width: 45%; }
+        .style-nature .info-head { font-size: 13px; font-weight: 700; color: #5D6D56; border-bottom: 1px dotted #A3B19C; padding-bottom: 5px; margin-bottom: 8px; }
+        .style-nature .info-body { font-size: 14px; line-height: 1.6; font-family: 'Noto Sans TC'; }
+        .style-nature th { color: #5D6D56; font-weight: 700; border-bottom: 2px solid #5D6D56; padding: 10px 8px; font-size: 13px; text-align: left; }
+        .style-nature td { border-bottom: 1px solid #E0E5DF; font-family: 'Noto Sans TC'; }
+        .style-nature .total-box { margin-left: auto; width: 250px; background: #fff; padding: 15px; border: 1px solid #E0E5DF; border-radius: 4px; }
+        .style-nature .t-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; font-family: 'Noto Sans TC'; }
+        .style-nature .t-final { border-top: 1px solid #5D6D56; padding-top: 10px; margin-top: 5px; font-size: 16px; font-weight: 700; color: #5D6D56; display: flex; justify-content: space-between; }
+        .style-nature .notes-section { background-color: #fff; border: 1px dashed #A3B19C; color: #5D6D56; }
+
+        /* --- 風格 3: 極簡 (Minimal) --- */
+        .style-minimal { font-family: 'Noto Sans TC', sans-serif; color: #000; }
+        .style-minimal .page-content { padding: 15mm 10mm; }
+        .style-minimal .header { display: flex; justify-content: space-between; margin-bottom: 50px; }
+        .style-minimal .title { font-size: 42px; font-weight: 900; line-height: 1; letter-spacing: -1px; }
+        .style-minimal .meta-group { text-align: right; }
+        .style-minimal .meta-item { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+        .style-minimal .client-area { margin-bottom: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .style-minimal .label { font-size: 11px; font-weight: 700; color: #999; margin-bottom: 5px; }
+        .style-minimal .val { font-size: 16px; font-weight: 500; }
+        .style-minimal th { font-weight: 800; font-size: 11px; letter-spacing: 0.5px; color: #000; border-top: 2px solid #000; border-bottom: 1px solid #000; padding: 12px 8px; text-align: left; }
+        .style-minimal td { border-bottom: 1px solid #eee; font-weight: 400; padding: 15px 8px; }
+        .style-minimal .total-block { margin-top: 30px; text-align: right; }
+        .style-minimal .final-price { font-size: 32px; font-weight: 700; margin-top: 10px; display: block; letter-spacing: -1px; }
+        .style-minimal .notes-section { border-top: 1px solid #000; padding-left: 0; padding-right: 0; color: #333; }
+
+        /* 印章 (共用) */
+        .footer-sign { display: flex; justify-content: space-between; margin-top: 30px; font-family: 'Noto Serif TC'; }
+        .sign-area { width: 40%; border-top: 1px solid #ccc; padding-top: 10px; font-size: 12px; color: #666; position: relative; }
+        .stamp {
+            position: absolute; top: -30px; right: 20px;
+            width: 80px; height: 80px; border: 3px solid #c0392b; color: #c0392b; opacity: 0.8;
+            border-radius: 4px; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 18px; transform: rotate(-5deg); writing-mode: vertical-rl; letter-spacing: 3px;
+        }
+
+        @media print {
+            .sidebar, .mobile-nav { display: none !important; }
+            .preview-area { padding: 0; display: block; background: #fff; height: auto; overflow: visible; }
+            .zoom-container { transform: none !important; margin: 0 !important; padding: 0 !important; }
+            #invoice-paper { box-shadow: none; transform: none !important; margin: 0; }
+        }
+    </style>
+</head>
+<body data-view="edit">
+
+    <div class="mobile-nav">
+        <div class="nav-grid">
+            <button class="nav-item active" onclick="switchView('edit', this)">📝 編輯資料</button>
+            <button class="nav-item" onclick="switchView('preview', this)">👁️ 預覽報價</button>
+            <button class="nav-item" onclick="exportPDF()">📥 下載 PDF</button>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-content">
+            <h2>報價單設定</h2>
+            
+            <div class="form-section">
+                <span class="label">選擇風格</span>
+                <div class="style-grid">
+                    <div class="style-card btn-intellect active" onclick="setStyle('style-intellect', this)">
+                        <span>知性</span><small>深藍 x 米灰</small>
+                    </div>
+                    <div class="style-card btn-nature" onclick="setStyle('style-nature', this)">
+                        <span>自然</span><small>森綠 x 暖白</small>
+                    </div>
+                    <div class="style-card btn-minimal" onclick="setStyle('style-minimal', this)">
+                        <span>極簡</span><small>黑白 x 灰階</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <span class="label">基本資料</span>
+                <input type="date" id="in-date" class="form-control" onchange="render()">
+                <input type="text" id="in-client" class="form-control" placeholder="客戶名稱" value="快樂企業" oninput="render()">
+                <input type="text" id="in-tax" class="form-control" placeholder="客戶統編" value="12345678" oninput="render()">
+            </div>
+
+            <div class="form-section">
+                <span class="label">備註內容 (可編輯)</span>
+                <textarea id="in-notes" class="form-control" style="min-height:100px" oninput="render()">
+1. 本報價單有效期限為 30 天，逾期請重新詢價。
+2. 匯款手續費由付款方承擔。
+3. 請於服務結束後 15 日內完成付款。
+4. 以上金額為新台幣 (TWD) 計價。</textarea>
+            </div>
+
+            <div class="form-section">
+                <span class="label">報價項目</span>
+                <div id="item-list"></div>
+                <button class="btn-add" onclick="addItem()">+ 新增項目</button>
+            </div>
+        </div>
+
+        <div class="desktop-download">
+            <button class="btn-main" onclick="exportPDF()">下載 PDF 報價單</button>
+        </div>
+    </div>
+
+    <div class="preview-area">
+        <div class="zoom-container" id="zoom-container">
+            <div id="invoice-paper" class="style-intellect">
+                <div class="page-content">
+                    <div id="dynamic-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStyle = 'style-intellect';
+        let items = [
+            { name: "講師費", desc: "專業課程授課及研修資料製作\n包含：簡報製作、講義編排、現場QA", qty: 1, price: 6000 }
+        ];
+
+        window.onload = () => {
+            document.getElementById('in-date').value = new Date().toISOString().split('T')[0];
+            renderEditor();
+            render();
+            autoZoom();
+            window.addEventListener('resize', autoZoom);
+        };
+
+        function autoZoom() {
+            const previewArea = document.querySelector('.preview-area');
+            const zoomContainer = document.getElementById('zoom-container');
+            const paperWidth = 794; 
+            const availableWidth = previewArea.clientWidth - 60; 
+            let scale = availableWidth / paperWidth;
+            if (scale > 1.2) scale = 1.2;
+            
+            zoomContainer.style.transform = `scale(${scale})`;
+            zoomContainer.style.height = `${1123 * scale}px`;
+            zoomContainer.style.width = `${paperWidth}px`;
+        }
+
+        function renderEditor() {
+            const list = document.getElementById('item-list');
+            list.innerHTML = '';
+            items.forEach((item, i) => {
+                const el = document.createElement('div');
+                el.className = 'item-row';
+                el.innerHTML = `
+                    <button class="btn-del" onclick="delItem(${i})">移除</button>
+                    <input type="text" class="form-control" placeholder="項目名稱" value="${item.name}" oninput="updateItem(${i}, 'name', this.value)">
+                    <textarea class="form-control" style="min-height:60px" placeholder="內容說明" oninput="updateItem(${i}, 'desc', this.value)">${item.desc}</textarea>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" class="form-control" placeholder="數量" value="${item.qty}" oninput="updateItem(${i}, 'qty', this.value)">
+                        <input type="number" class="form-control" placeholder="單價" value="${item.price}" oninput="updateItem(${i}, 'price', this.value)">
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        function addItem() { items.push({name:"", desc:"", qty:1, price:0}); renderEditor(); render(); }
+        function delItem(i) { items.splice(i, 1); renderEditor(); render(); }
+        function updateItem(i, k, v) { items[i][k] = (k==='qty'||k==='price') ? (parseFloat(v)||0) : v; render(); }
+
+        function render() {
+            const container = document.getElementById('dynamic-content');
+            const dStr = document.getElementById('in-date').value;
+            const d = new Date(dStr || Date.now());
+            const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+            const invNo = `QU-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-001`;
+            const client = document.getElementById('in-client').value || "客戶名稱";
+            const taxId = document.getElementById('in-tax').value || "12345678";
+            const notes = document.getElementById('in-notes').value;
+
+            let subtotal = 0;
+            const rowsHtml = items.map(item => {
+                const amt = Math.round(item.qty * item.price);
+                subtotal += amt;
+                return `<tr>
+                    <td class="col-item">${item.name}</td>
+                    <td class="col-desc">${item.desc}</td>
+                    <td class="col-qty">${item.qty}</td>
+                    <td class="col-price">${item.price.toLocaleString()}</td>
+                    <td class="col-amt">${amt.toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+            
+            const spacer = items.length < 5 ? `<tr><td colspan="5" style="height:${(5-items.length)*40}px; border-bottom:none"></td></tr>` : '';
+            const tax = Math.round(subtotal * 0.05);
+            const total = subtotal + tax;
+
+            if (currentStyle === 'style-intellect') {
+                container.innerHTML = `
+                    <div class="header">
+                        <div class="title">報價單</div>
+                        <div class="meta">單號：${invNo}<br>日期：${dateStr}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-col">
+                            <div class="info-label">客戶資訊</div>
+                            <div class="info-val">${client}</div>
+                            <div style="font-size:13px; color:#555">統編：${taxId}</div>
+                        </div>
+                        <div class="info-col" style="text-align:right">
+                            <div class="info-label">開立單位</div>
+                            <div class="info-val">玖森工作室</div>
+                            <div style="font-size:13px; color:#555">contact@jousen-studio.com</div>
+                        </div>
+                    </div>
+                    <table class="inv-table">
+                        <thead><tr><th class="col-item">項目</th><th class="col-desc">內容說明</th><th class="col-qty">數量</th><th class="col-price">單價</th><th class="col-amt">金額</th></tr></thead>
+                        <tbody>${rowsHtml}${spacer}</tbody>
+                    </table>
+                    <div class="total-area">
+                        <div>
+                            <div class="total-row"><span>小計</span><span>${subtotal.toLocaleString()}</span></div>
+                            <div class="total-row"><span>稅額 (5%)</span><span>${tax.toLocaleString()}</span></div>
+                            <div class="grand"><span>總計</span><span>NT$ ${total.toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                    <div class="notes-section"><strong>備註事項：</strong><br>${notes}</div>
+                    <div class="footer-sign">
+                        <div class="sign-area">客戶簽署</div>
+                        <div class="sign-area" style="text-align:right">玖森工作室<div class="stamp">玖森<br>之印</div></div>
+                    </div>
+                `;
+            } 
+            else if (currentStyle === 'style-nature') {
+                container.innerHTML = `
+                    <div class="header">
+                        <div class="title">報價單</div>
+                        <div class="meta">No. ${invNo} | Date. ${dateStr}</div>
+                    </div>
+                    <div class="info-wrapper">
+                        <div class="info-block">
+                            <div class="info-head">客戶資料</div>
+                            <div class="info-body"><strong>${client}</strong><br>統編：${taxId}</div>
+                        </div>
+                        <div class="info-block" style="text-align:right">
+                            <div class="info-head">服務單位</div>
+                            <div class="info-body"><strong>玖森工作室</strong><br>台北市信義區信義路五段7號</div>
+                        </div>
+                    </div>
+                    <table class="inv-table">
+                        <thead><tr><th class="col-item">項目名稱</th><th class="col-desc">內容說明</th><th class="col-qty">數量</th><th class="col-price">單價</th><th class="col-amt">金額</th></tr></thead>
+                        <tbody>${rowsHtml}${spacer}</tbody>
+                    </table>
+                    <div class="total-box">
+                        <div class="t-row"><span>小計</span><span>${subtotal.toLocaleString()}</span></div>
+                        <div class="t-row"><span>稅額 (5%)</span><span>${tax.toLocaleString()}</span></div>
+                        <div class="t-final"><span>總計</span><span>NT$ ${total.toLocaleString()}</span></div>
+                    </div>
+                    <div class="notes-section"><strong>備註事項：</strong><br>${notes}</div>
+                    <div class="footer-sign">
+                        <div class="sign-area">客戶確認</div>
+                        <div class="sign-area" style="text-align:right">單位用印<div class="stamp" style="border-color:#5D6D56; color:#5D6D56; border-radius:50%">玖森</div></div>
+                    </div>
+                `;
+            }
+            else if (currentStyle === 'style-minimal') {
+                container.innerHTML = `
+                    <div class="header">
+                        <div class="title">QUOTE</div>
+                        <div class="meta-group">
+                            <div class="meta-item"># ${invNo}</div>
+                            <div class="meta-item">${dateStr}</div>
+                        </div>
+                    </div>
+                    <div class="client-area">
+                        <div>
+                            <div class="label">客戶名稱 (CLIENT)</div>
+                            <div class="val">${client}</div>
+                            <div style="font-size:13px; margin-top:5px">統編：${taxId}</div>
+                        </div>
+                        <div>
+                            <div class="label">開立人 (PROVIDER)</div>
+                            <div class="val">玖森工作室</div>
+                        </div>
+                    </div>
+                    <table class="inv-table">
+                        <thead><tr><th class="col-item">ITEM</th><th class="col-desc">DESC</th><th class="col-qty">QTY</th><th class="col-price">PRICE</th><th class="col-amt">AMOUNT</th></tr></thead>
+                        <tbody>${rowsHtml}${spacer}</tbody>
+                    </table>
+                    <div class="total-block">
+                        <div style="font-size:14px; font-weight:500">SUBTOTAL: ${subtotal.toLocaleString()}</div>
+                        <div style="font-size:14px; font-weight:500">TAX (5%): ${tax.toLocaleString()}</div>
+                        <span class="final-price">NT$ ${total.toLocaleString()}</span>
+                    </div>
+                    <div class="notes-section">${notes}</div>
+                    <div class="footer-sign">
+                        <div class="sign-area" style="border-color:#000; color:#000">CLIENT SIGNATURE</div>
+                        <div class="sign-area" style="border-color:#000; color:#000; text-align:right">AUTHORIZED<div class="stamp" style="border:3px solid #000; color:#000; border-radius:0;">玖森</div></div>
+                    </div>
+                `;
+            }
+        }
+
+        function setStyle(styleName, btn) {
+            currentStyle = styleName;
+            document.getElementById('invoice-paper').className = styleName;
+            document.querySelectorAll('.style-card').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            render();
+        }
+
+        function switchView(view, btn) {
+            document.body.setAttribute('data-view', view);
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if(view === 'preview') setTimeout(autoZoom, 100);
+        }
+
+        function exportPDF() {
+            const element = document.getElementById('invoice-paper');
+            const no = document.getElementById('in-date').value.replace(/-/g,'') || 'quote';
+            const zoomContainer = document.getElementById('zoom-container');
+            const originalTransform = zoomContainer.style.transform;
+            zoomContainer.style.transform = 'none';
+
+            const opt = {
+                margin: 0,
+                filename: `報價單_${no}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                zoomContainer.style.transform = originalTransform;
+            });
+        }
+    </script>
+</body>
+</html>
+
